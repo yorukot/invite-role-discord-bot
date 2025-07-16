@@ -5,6 +5,7 @@ interface InviteSnapshot {
   code: string;
   uses: number;
   timestamp: number;
+  guildId: string; // 添加 guildId 來追蹤哪個 guild 的邀請
 }
 
 // InviteTracker class is responsible for tracking and caching invite usage
@@ -23,7 +24,8 @@ export class InviteTracker {
         this.inviteSnapshots.set(invite.code, {
           code: invite.code,
           uses: invite.uses || 0,
-          timestamp
+          timestamp,
+          guildId: guild.id
         });
       });
 
@@ -46,7 +48,8 @@ export class InviteTracker {
     this.inviteSnapshots.set(invite.code, {
       code: invite.code,
       uses: invite.uses || 0,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      guildId: invite.guild?.id || 'unknown'
     });
     console.log(`[邀請追蹤器] 邀請已建立/更新: ${invite.code}, 使用次數: ${invite.uses}`);
   }
@@ -55,6 +58,19 @@ export class InviteTracker {
   removeInvite(invite: Invite) {
     this.inviteSnapshots.delete(invite.code);
     console.log(`[邀請追蹤器] 邀請已刪除: ${invite.code}`);
+  }
+
+  // Clear cache for a specific guild
+  clearGuildCache(guildId: string) {
+    const toDelete: string[] = [];
+    for (const [code, snapshot] of this.inviteSnapshots.entries()) {
+      if (snapshot.guildId === guildId) {
+        toDelete.push(code);
+      }
+    }
+    
+    toDelete.forEach(code => this.inviteSnapshots.delete(code));
+    console.log(`[邀請追蹤器] 已清理伺服器 ${guildId} 的 ${toDelete.length} 個邀請快取`);
   }
 
   // 檢測邀請使用並更新快取
@@ -86,7 +102,8 @@ export class InviteTracker {
         this.inviteSnapshots.set(invite.code, {
           code: invite.code,
           uses: invite.uses || 0,
-          timestamp
+          timestamp,
+          guildId: guild.id
         });
       });
 
@@ -109,5 +126,29 @@ export class InviteTracker {
   // Helper: Get all cached snapshots
   getAllSnapshots(): InviteSnapshot[] {
     return Array.from(this.inviteSnapshots.values());
+  }
+
+  // Helper: Get all snapshots for a specific guild
+  getGuildSnapshots(guildId: string): InviteSnapshot[] {
+    return Array.from(this.inviteSnapshots.values()).filter(snapshot => snapshot.guildId === guildId);
+  }
+
+  // Helper: Check if an invite is cached
+  isInviteCached(code: string): boolean {
+    return this.inviteSnapshots.has(code);
+  }
+
+  // Helper: Get cache statistics
+  getCacheStats() {
+    const guildCounts = new Map<string, number>();
+    for (const snapshot of this.inviteSnapshots.values()) {
+      guildCounts.set(snapshot.guildId, (guildCounts.get(snapshot.guildId) || 0) + 1);
+    }
+    
+    return {
+      totalInvites: this.inviteSnapshots.size,
+      guilds: guildCounts.size,
+      guildCounts: Object.fromEntries(guildCounts)
+    };
   }
 } 

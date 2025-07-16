@@ -33,7 +33,7 @@ client.once('ready', async () => {
   try {
     await connectMongo();
     console.log('資料庫連接成功');
-    
+
     // 清理無效的角色映射
     const { cleanupInvalidRoles } = await import('../db/inviteRole');
     const cleanedCount = await cleanupInvalidRoles();
@@ -46,6 +46,10 @@ client.once('ready', async () => {
   }
 
   await inviteTracker.cacheAllGuilds();
+
+  // 顯示快取統計
+  const cacheStats = inviteTracker.getCacheStats();
+  console.log(`[邀請追蹤器] 快取統計: 總共 ${cacheStats.totalInvites} 個邀請，來自 ${cacheStats.guilds} 個伺服器`);
 
   if (client.user) {
     const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN!);
@@ -73,10 +77,28 @@ client.on('inviteDelete', invite => {
   inviteTracker.removeInvite(invite);
 });
 
+// When bot joins a new guild, cache all invites
+client.on('guildCreate', async guild => {
+  console.log(`[Bot] 已加入新的伺服器: ${guild.name} (${guild.id})`);
+  try {
+    await inviteTracker.cacheGuildInvites(guild);
+    console.log(`[Bot] 已為新伺服器 ${guild.name} 快取邀請`);
+  } catch (error) {
+    console.error(`為新伺服器 ${guild.name} 快取邀請時發生錯誤:`, error);
+  }
+});
+
+// When bot leaves a guild, clean up cache
+client.on('guildDelete', guild => {
+  console.log(`[Bot] 已離開伺服器: ${guild.name} (${guild.id})`);
+  // 清理該 guild 的快取
+  inviteTracker.clearGuildCache(guild.id);
+});
+
 // When a new member joins, determine which invite was used and assign the corresponding role
 client.on('guildMemberAdd', async member => {
   let usedInvite: Invite | undefined;
-  
+
   try {
     // 使用新的檢測方法
     usedInvite = await inviteTracker.detectInviteUsageAndUpdate(member.guild);
@@ -88,10 +110,10 @@ client.on('guildMemberAdd', async member => {
       // 獲取所有有角色映射的邀請碼
       const { getAllInviteRoles } = await import('../db/inviteRole');
       const inviteRoleMap = await getAllInviteRoles();
-      
+
       // 獲取目前的邀請
       const currentInvites = await member.guild.invites.fetch();
-      
+
       // 找到有角色映射的活躍邀請
       const activeInvitesWithRoles = Array.from(currentInvites.values()).filter(invite =>
         inviteRoleMap[invite.code] && (!invite.maxUses || invite.uses! < invite.maxUses)
