@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: invite-bot-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: invite_bot
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d
+    networks:
+      - bot-network
+
+  discord-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: invite-role-discord-bot
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/invite_bot?authSource=admin
+      - NODE_ENV=production
+    networks:
+      - bot-network
+    volumes:
+      - ./logs:/app/logs
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  bot-network:
+    driver: bridge

@@ -1,0 +1,39 @@
+# Node modules
+node_modules/
+
+# TypeScript output
+dist/
+build/
+*.js
+*.js.map
+*.d.ts
+
+# Optional: if using ts-node
+.ts-node*
+
+# Logs
+logs/
+*.log
+
+# Environment variables
+.env
+
+# OS / IDE / Editor stuff
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# PM2 or other process managers
+pids/
+*.pid
+*.seed
+
+# Yarn / npm
+yarn.lock
+package-lock.json
+.pnpm-debug.log*
+
+# If using ESLint or Prettier cache
+.eslintcache
+.prettierignore
